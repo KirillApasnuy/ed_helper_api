@@ -13,7 +13,7 @@ public class UserChat {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @ManyToOne(cascade = CascadeType.REMOVE, fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "user_id")
     @JsonIgnore
     private LocalUser user;

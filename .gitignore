@@ -33,6 +33,7 @@ build/
 .vscode/
 
 assistants/
+media/
 
 src/main/resources/*.yaml
 src/main/resources/*.json

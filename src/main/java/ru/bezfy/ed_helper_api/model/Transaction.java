@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import org.hibernate.annotations.Cache;
 
+import java.math.BigDecimal;
 import java.util.Date;
 
 @Entity
@@ -20,9 +21,7 @@ public class Transaction {
     @Column(name = "description")
     private String description;
     @Column(name = "amount", nullable = false)
-    private Long amount;
-    @Column(name = "payment_card_number", nullable = false)
-    private String paymentCardNumber;
+    private BigDecimal amount;
     @ManyToOne
     @JoinColumn(name = "user_id")
     @JsonIgnore
@@ -60,20 +59,12 @@ public class Transaction {
         this.description = description;
     }
 
-    public Long getAmount() {
+    public BigDecimal getAmount() {
         return amount;
     }
 
-    public void setAmount(Long amount) {
+    public void setAmount(BigDecimal amount) {
         this.amount = amount;
-    }
-
-    public String getPaymentCardNumber() {
-        return paymentCardNumber;
-    }
-
-    public void setPaymentCardNumber(String paymentCardNumber) {
-        this.paymentCardNumber = paymentCardNumber;
     }
 
     public LocalUser getUser() {

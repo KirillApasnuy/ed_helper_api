@@ -8,6 +8,7 @@ import ru.bezfy.ed_helper_api.api.model.SubscriptionBody;
 import ru.bezfy.ed_helper_api.exception.EmailFailureException;
 import ru.bezfy.ed_helper_api.model.LocalUser;
 import ru.bezfy.ed_helper_api.model.Subscription;
+import ru.bezfy.ed_helper_api.model.Transaction;
 import ru.bezfy.ed_helper_api.model.dao.LocalUserDAO;
 import ru.bezfy.ed_helper_api.model.dao.SubscriptionDAO;
 import ru.bezfy.ed_helper_api.model.enums.SubscribeState;
@@ -18,12 +19,14 @@ import java.util.*;
 public class SubscriptionService {
     private final SubscriptionDAO subscriptionDAO;
     private final LocalUserDAO localUserDAO;
+    private final TransactionService transactionService;
     private final EmailService emailService;
     private static final Logger logger = LoggerFactory.getLogger(SubscriptionService.class);
 
-    public SubscriptionService(SubscriptionDAO subscriptionDAO, LocalUserDAO localUserDAO, EmailService emailService) {
+    public SubscriptionService(SubscriptionDAO subscriptionDAO, LocalUserDAO localUserDAO, TransactionService transactionService, EmailService emailService) {
         this.subscriptionDAO = subscriptionDAO;
         this.localUserDAO = localUserDAO;
+        this.transactionService = transactionService;
         this.emailService = emailService;
     }
 
@@ -68,7 +71,8 @@ public class SubscriptionService {
             user.setAutoRenewal(isAutoRenewal);
             user.setSubscribeState(SubscribeState.SUBSCRIBED);
             localUserDAO.save(user);
-            if (subscription.isAccessInGroup() ) {
+            createTransaction(user, subscription);
+            if (subscription.isAccessInGroup()) {
                 try {
                     emailService.sendAccessInGroupEmail(user);
                 } catch (EmailFailureException e) {
@@ -99,5 +103,16 @@ public class SubscriptionService {
             return ResponseEntity.ok("Subscription deleted");
         }
         return ResponseEntity.notFound().build();
+    }
+
+    private void createTransaction(LocalUser user, Subscription subscription) {
+
+        Transaction transaction = new Transaction();
+        transaction.setDate(new Date());
+        transaction.setUser(user);
+        transaction.setAmount(subscription.getAmountPerMonth());
+        transaction.setName("Payment for subscription " + subscription.getEnTitle());
+
+        transactionService.createTransaction(user, transaction);
     }
 }

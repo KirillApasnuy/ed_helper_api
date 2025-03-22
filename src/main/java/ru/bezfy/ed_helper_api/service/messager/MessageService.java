@@ -21,6 +21,7 @@ import ru.bezfy.ed_helper_api.repository.OpenAiRepository;
 import ru.bezfy.ed_helper_api.service.AssistantService;
 import ru.bezfy.ed_helper_api.service.ChatService;
 import ru.bezfy.ed_helper_api.service.QuestionAnswerService;
+import ru.bezfy.ed_helper_api.service.UserService;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -37,10 +38,11 @@ public class MessageService {
     private final DeepGramRepository deepGramRepositoryRepository;
     private final QuestionAnswerService questionAnswerService;
     private final ChatService chatService;
-    private final UserMessageDAO userMessageDAO;
     private final ResponseService responseService;
+    private final UserService userService;
+    private final UserMessageDAO userMessageDAO;
 
-    public MessageService(GPTModelDAO gptModelDAO, LocalUserDAO localUserDAO, OpenAiRepository openAiRepositoryRepository, DeepSeekRepository deepSeekRepositoryRepository, DeepGramRepository deepGramRepositoryRepository, QuestionAnswerService questionAnswerService, ChatService chatService, UserMessageDAO userMessageDAO, ResponseService responseService) {
+    public MessageService(GPTModelDAO gptModelDAO, LocalUserDAO localUserDAO, OpenAiRepository openAiRepositoryRepository, DeepSeekRepository deepSeekRepositoryRepository, DeepGramRepository deepGramRepositoryRepository, QuestionAnswerService questionAnswerService, ChatService chatService, UserMessageDAO userMessageDAO, ResponseService responseService, UserService userService) {
         this.gptModelDAO = gptModelDAO;
         this.localUserDAO = localUserDAO;
         this.openAiRepositoryRepository = openAiRepositoryRepository;
@@ -50,6 +52,7 @@ public class MessageService {
         this.chatService = chatService;
         this.userMessageDAO = userMessageDAO;
         this.responseService = responseService;
+        this.userService = userService;
     }
 
     public ResponseEntity<?> sendOpenAiTextMessage(LocalUser user, ClientMessageBody message) {
@@ -79,13 +82,17 @@ public class MessageService {
         if (!chatService.addMessage(chat.getId(), userMessageDAO.save(userMessage))) {
             return ResponseEntity.badRequest().body("Failed to add message");
         }
-
+        if (!userService.accessSendMessage(user)) {
+            System.out.println(userService.accessSendMessage(user));
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("You have exceeded your monthly message limit or your subscription has expired");
+        }
         // Увеличиваем счётчик генераций пользователя
         user.setCountGenerationInLastMonth(user.getCountGenerationInLastMonth() + 1);
         localUserDAO.save(user);
 
         // Проверяем наличие предопределённого ответа
         Optional<AssistantResponse> predefinedResponse = questionAnswerService.findBestMatch(message, 0.5);
+        System.out.println(1);
         if (predefinedResponse.isPresent()) {
             AssistantResponse assistantResponse = predefinedResponse.get();
             assistantResponse.setChatId(chat.getId());

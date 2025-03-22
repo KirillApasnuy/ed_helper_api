@@ -1,5 +1,9 @@
 package ru.bezfy.ed_helper_api.service;
 
+import com.resend.Resend;
+import com.resend.core.exception.ResendException;
+import com.resend.services.emails.model.CreateEmailOptions;
+import com.resend.services.emails.model.CreateEmailResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,65 +32,71 @@ public class EmailService {
     private String username;
     @Value("${spring.mail.password}")
     private String password;
+    private final Resend resend = new Resend("re_3rH8Bdpx_2GJMhUe94RHUFn47o83Tnq4i");
 
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
 
-    private JavaMailSender getJavaMailSender() {
-        JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        mailSender.setHost(host);
-        mailSender.setPort(port);
-        mailSender.setUsername(username);
-        mailSender.setPassword(password);
 
-        Properties props = mailSender.getJavaMailProperties();
-        props.put("mail.transport.protocol", "smtp");
-        props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.debug", "false"); // Включить логирование
 
-        return mailSender;
-    }
 
     public void sendVerificationEmail(VerificationToken verificationToken) throws EmailFailureException {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(verificationToken.getUser().getEmail());
-        message.setSubject("Verify your email to active your account.");
-        message.setText("Your verification code is: " + verificationToken.getToken());
-        try {
-            getJavaMailSender().send(message);
 
-        } catch (MailException ex) {
-            System.out.println(ex.getMessage());
-            throw new EmailFailureException();
+
+
+        CreateEmailOptions params = CreateEmailOptions.builder()
+                .from("Ed-helper verification <Verification@edhelper.ai>")
+                .to(verificationToken.getUser().getEmail())
+                .subject("Verify your email to active your account.")
+                .html("<strong>Your verification code is: " + verificationToken.getToken() + "</strong>")
+                .build();
+
+        try {
+            System.out.println("Email sent successfully");
+            CreateEmailResponse data = resend.emails().send(params);
+            System.out.println(data.getId());
+        } catch (ResendException e) {
+            e.printStackTrace();
         }
     }
-
     public void sendAccessInGroupEmail(LocalUser user) throws EmailFailureException {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo("Link for access in group");
-        message.setSubject("Link for access in group");
-        message.setText("Link for access in group: ________________________");
-        try {
-            getJavaMailSender().send(message);
+        Resend resend = new Resend("re_3rH8Bdpx_2GJMhUe94RHUFn47o83Tnq4i");
 
-        } catch (MailException ex) {
-            System.out.println(ex.getMessage());
-            throw new EmailFailureException();
+
+        CreateEmailOptions params = CreateEmailOptions.builder()
+                .from("Ed-helper Group link <Request@edhelper.ai>")
+
+                .to(user.getEmail())
+                .subject("Access in your group.")
+                .html("<strong>Access in your group: __url__</strong>")
+                .build();
+
+        try {
+            System.out.println("Email sent successfully");
+            CreateEmailResponse data = resend.emails().send(params);
+            System.out.println(data.getId());
+        } catch (ResendException e) {
+            e.printStackTrace();
         }
     }
 
-    public void sendPasswordResetEmail(LocalUser user, String token) throws EmailFailureException {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(user.getEmail());
-        message.setSubject("Password reset request");
-        message.setText("Please follow the link below to reset your password.\n" +
-                url + "/auth/reset/" + token);
+    public void sendPasswordResetEmail(VerificationToken verificationToken) throws EmailFailureException {
+        CreateEmailOptions params = CreateEmailOptions.builder()
+                .from("Ed-helper Verification email <Verification@edhelper.ai>")
+                .to(verificationToken.getUser().getEmail())
+                .subject("Verify your email to reset your password.")
+                .html("<strong>Your verification code is: " + verificationToken.getToken() + "</strong>")
+                .build();
+
         try {
-            mailSender.send(message);
-        } catch (MailException ex) {
-            throw new EmailFailureException();
+            System.out.println("Email sent successfully");
+            CreateEmailResponse data = resend.emails().send(params);
+            System.out.println(data.getId());
+        } catch (ResendException e) {
+            e.printStackTrace();
         }
     }
 }
+
+//re_3rH8Bdpx_2GJMhUe94RHUFn47o83Tnq4i

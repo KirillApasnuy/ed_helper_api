@@ -1,6 +1,7 @@
 package ru.bezfy.ed_helper_api.service;
 
 import jakarta.transaction.Transactional;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import ru.bezfy.ed_helper_api.api.model.AuthorizationModel;
 import ru.bezfy.ed_helper_api.exception.EmailFailureException;
@@ -34,7 +35,7 @@ public class AuthService {
         this.verificationTokenDAO = verificationTokenDAO;
     }
 
-    public void register(AuthorizationModel authModel) throws UserAlreadyExistsException, EmailFailureException {
+    public String register(AuthorizationModel authModel) throws UserAlreadyExistsException, EmailFailureException {
         // Проверяем, существует ли пользователь с таким email
         System.out.println(authModel.toString());
         if (localUserDAO.findByEmail(authModel.getEmail()).isPresent()) {
@@ -51,22 +52,24 @@ public class AuthService {
         VerificationToken verificationToken = createVerificationToken(newUser);
         try {
 
-        emailService.sendVerificationEmail(verificationToken);
+            emailService.sendVerificationEmail(verificationToken);
+
         } catch (Exception ignored) {
 
         }
 
         localUserDAO.save(newUser);
-        System.out.println("save user");
+        return jwtService.generateJWT(newUser);
     }
 
     public String login(AuthorizationModel authModel) throws UserNotFoundException, InvalidCredentialsException {
         Optional<LocalUser> opUser = localUserDAO.findByEmail(authModel.getEmail());
         if (opUser.isPresent()) {
             final LocalUser user = opUser.get();
-            if (encryptionService.verifyPassword(authModel.getPassword(), user.getPassword())){
+            if (encryptionService.verifyPassword(authModel.getPassword(), user.getPassword())) {
                 return jwtService.generateJWT(user);
-            };
+            }
+            ;
             throw new InvalidCredentialsException();
         }
         throw new UserNotFoundException();
@@ -84,6 +87,65 @@ public class AuthService {
                 verificationTokenDAO.deleteByUser(user);
                 return jwtService.generateJWT(user);
             }
+        }
+        throw new InvalidCredentialsException();
+    }
+
+    public void sendVerificationEmail(String email) throws InvalidCredentialsException {
+        Optional<LocalUser> opUser = localUserDAO.findByEmail(email);
+        if (opUser.isPresent()) {
+            LocalUser user = opUser.get();
+            VerificationToken verificationToken = createVerificationToken(user);
+            user.getVerificationTokens().add(verificationToken);
+            try {
+                emailService.sendVerificationEmail(verificationToken);
+                localUserDAO.save(user);
+                return;
+            } catch (Exception ignored) {
+
+            }
+
+        }
+        throw new InvalidCredentialsException();
+    }
+
+    public void sendVerificationEmailCode(String email) throws InvalidCredentialsException {
+        Optional<LocalUser> opUser = localUserDAO.findByEmail(email);
+        if (opUser.isPresent()) {
+            LocalUser user = opUser.get();
+            VerificationToken verificationToken = createVerificationToken(user);
+            user.getVerificationTokens().add(verificationToken);
+            try {
+                emailService.sendPasswordResetEmail(verificationToken);
+            } catch (Exception ignored) {
+            }
+        }
+        throw new InvalidCredentialsException();
+    }
+
+    public String createResetPasswordToken(String code) throws InvalidCredentialsException {
+        Optional<VerificationToken> opToken = verificationTokenDAO.findByToken(code);
+        if (opToken.isPresent()) {
+            VerificationToken verificationToken = opToken.get();
+            LocalUser user = verificationToken.getUser();
+            if (user.getEmailVerified()) {
+                verificationTokenDAO.delete(verificationToken);
+                return jwtService.generatePasswordResetJWT(user);
+            }
+        }
+        throw new InvalidCredentialsException();
+    }
+
+    public ResponseEntity<String> setVerificationResetToken(String password, String token) throws InvalidCredentialsException {
+        String opUserEmail = jwtService.getResetPasswordEmail(token);
+        System.out.println(opUserEmail);
+        Optional<LocalUser> opUser = localUserDAO.findByEmail(opUserEmail);
+        if (opUser.isPresent()) {
+            LocalUser user = opUser.get();
+            String encryptedPassword = encryptionService.encryptPassword(password);
+            user.setPassword(encryptedPassword);
+            localUserDAO.save(user);
+            return ResponseEntity.ok("Password was reset");
         }
         throw new InvalidCredentialsException();
     }

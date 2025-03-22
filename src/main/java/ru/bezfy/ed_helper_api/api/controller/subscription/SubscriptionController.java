@@ -53,6 +53,6 @@ public class SubscriptionController {
         if (user.getUserType().equals(UserType.TEACHER) || user.getUserType().equals(UserType.ADMIN)) {
             return subscriptionService.deleteSubscription(id);
         }
-        return ResponseEntity.ok("You are not authorized to delete this assistant");
+        return ResponseEntity.badRequest().body("You are not authorized to delete this assistant");
     }
 }
